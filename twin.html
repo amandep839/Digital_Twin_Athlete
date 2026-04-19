@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Running Zone Digital Twin</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:       #080810;
+    --surface:  #0f0f1a;
+    --border:   #1e1e2e;
+    --muted:    #334155;
+    --text:     #e2e8f0;
+    --sub:      #64748b;
+
+    --zone2:    #3b82f6;
+    --aerobic:  #22c55e;
+    --tempo:    #eab308;
+    --intense:  #ef4444;
+    --waiting:  #475569;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 1.5rem;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .logo span { color: #818cf8; }
+  .conn-pill {
+    font-size: 0.72rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+    background: rgba(71,85,105,0.3);
+    color: var(--sub);
+    border: 1px solid var(--border);
+    transition: all 0.3s;
+  }
+  .conn-pill.connected {
+    background: rgba(34,197,94,0.12);
+    color: #86efac;
+    border-color: rgba(34,197,94,0.3);
+  }
+
+  /* ── MAIN GRID ── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 1rem;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+  }
+  .card-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--sub);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  /* ── ZONE BADGE (spans 2 cols) ── */
+  .zone-card {
+    grid-column: span 2;
+    border: 2px solid var(--waiting);
+    transition: border-color 0.5s, background 0.5s;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 2rem;
+  }
+  .zone-left { flex: 1; }
+  .zone-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--waiting);
+    transition: color 0.5s;
+    margin-bottom: 0.5rem;
+  }
+  .zone-pace {
+    font-size: 1rem;
+    color: var(--sub);
+    transition: color 0.5s;
+  }
+  .zone-right { text-align: right; }
+  .zone-conf {
+    font-family: 'Space Mono', monospace;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--sub);
+    transition: color 0.5s;
+  }
+  .zone-conf-lbl {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+  }
+
+  /* zone color classes */
+  .z-zone2   { border-color: var(--zone2)!important; }
+  .z-aerobic { border-color: var(--aerobic)!important; }
+  .z-tempo   { border-color: var(--tempo)!important; }
+  .z-intense { border-color: var(--intense)!important; }
+
+  .zc-zone2   { color: var(--zone2)!important; }
+  .zc-aerobic { color: var(--aerobic)!important; }
+  .zc-tempo   { color: var(--tempo)!important; }
+  .zc-intense { color: var(--intense)!important; }
+
+  /* ── SUGGESTION CARD ── */
+  .suggestion-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .suggestion-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.4;
+    margin-bottom: 1rem;
+  }
+  .target-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .target-lbl {
+    font-size: 0.75rem;
+    color: var(--sub);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .target-btn {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--sub);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .target-btn:hover { background: rgba(255,255,255,0.05); }
+  .target-btn.active-zone2   { background: rgba(59,130,246,0.15);  color: #93c5fd; border-color: var(--zone2); }
+  .target-btn.active-aerobic { background: rgba(34,197,94,0.15);   color: #86efac; border-color: var(--aerobic); }
+  .target-btn.active-tempo   { background: rgba(234,179,8,0.15);   color: #fde047; border-color: var(--tempo); }
+  .target-btn.active-intense { background: rgba(239,68,68,0.15);   color: #fca5a5; border-color: var(--intense); }
+
+  /* ── PROBABILITY BAR CHART ── */
+  .prob-card { grid-column: span 2; }
+  .prob-bars { display: flex; flex-direction: column; gap: 10px; }
+  .prob-row { display: flex; align-items: center; gap: 10px; }
+  .prob-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    width: 72px;
+    flex-shrink: 0;
+    color: var(--sub);
+  }
+  .prob-track {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .prob-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+    width: 0%;
+  }
+  .prob-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    width: 40px;
+    text-align: right;
+    color: var(--sub);
+  }
+
+  /* ── HISTORY CARD ── */
+  .history-card { }
+  .history-track {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    height: 60px;
+    margin-top: 0.5rem;
+  }
+  .history-bar {
+    flex: 1;
+    border-radius: 3px 3px 0 0;
+    min-width: 6px;
+    transition: height 0.4s, background 0.4s;
+    background: var(--border);
+    height: 20%;
+  }
+
+  /* ── METRICS ROW ── */
+  .metrics-card { }
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .metric-box {
+    background: #13131f;
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .metric-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #818cf8;
+    line-height: 1;
+  }
+  .metric-lbl {
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 5px;
+  }
+
+  /* ── BUFFER BAR ── */
+  .buffer-card { }
+  .buffer-outer {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+  }
+  .buffer-inner {
+    height: 100%;
+    background: #818cf8;
+    border-radius: 4px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+  .buffer-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--sub);
+    text-align: center;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    margin-top: 1.2rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  /* ── PULSE ANIMATION ── */
+  @keyframes pulse-border {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.6; }
+  }
+  .zone-card.pulsing { animation: pulse-border 1.5s ease-in-out infinite; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">RUNNING ZONE <span>DIGITAL TWIN</span></div>
+  <div class="conn-pill" id="connPill">Connecting...</div>
+</header>
+
+<div class="grid">
+
+  <!-- ZONE BADGE -->
+  <div class="card zone-card" id="zoneCard">
+    <div class="zone-left">
+      <div class="card-label">Current Zone</div>
+      <div class="zone-name" id="zoneName">WAITING</div>
+      <div class="zone-pace" id="zonePace">Start running to begin classification</div>
+    </div>
+    <div class="zone-right">
+      <div class="zone-conf" id="zoneConf">—</div>
+      <div class="zone-conf-lbl">confidence</div>
+    </div>
+  </div>
+
+  <!-- SUGGESTION + TARGET -->
+  <div class="card suggestion-card">
+    <div class="card-label">Pace Coach</div>
+    <div class="suggestion-text" id="suggestionText">Waiting for data...</div>
+    <div class="target-row">
+      <span class="target-lbl">Target:</span>
+      <button class="target-btn active-aerobic" onclick="setTarget('zone2')"   id="btn-zone2">zone2</button>
+      <button class="target-btn active-aerobic" onclick="setTarget('aerobic')" id="btn-aerobic">aerobic</button>
+      <button class="target-btn"                onclick="setTarget('tempo')"   id="btn-tempo">tempo</button>
+      <button class="target-btn"                onclick="setTarget('intense')" id="btn-intense">intense</button>
+    </div>
+  </div>
+
+  <!-- PROBABILITY BARS -->
+  <div class="card prob-card">
+    <div class="card-label">Class Probabilities</div>
+    <div class="prob-bars">
+      <div class="prob-row">
+        <span class="prob-name">zone2</span>
+        <div class="prob-track"><div class="prob-fill" id="prob-zone2"   style="background:var(--zone2)"></div></div>
+        <span class="prob-val"  id="pval-zone2">—</span>
+      </div>
+      <div class="prob-row">
+        <span class="prob-name">aerobic</span>
+        <div class="prob-track"><div class="prob-fill" id="prob-aerobic" style="background:var(--aerobic)"></div></div>
+        <span class="prob-val"  id="pval-aerobic">—</span>
+      </div>
+      <div class="prob-row">
+        <span class="prob-name">tempo</span>
+        <div class="prob-track"><div class="prob-fill" id="prob-tempo"   style="background:var(--tempo)"></div></div>
+        <span class="prob-val"  id="pval-tempo">—</span>
+      </div>
+      <div class="prob-row">
+        <span class="prob-name">intense</span>
+        <div class="prob-track"><div class="prob-fill" id="prob-intense" style="background:var(--intense)"></div></div>
+        <span class="prob-val"  id="pval-intense">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="card metrics-card">
+    <div class="card-label">Session Stats</div>
+    <div class="metrics-grid">
+      <div class="metric-box">
+        <div class="metric-val" id="metClassifications">0</div>
+        <div class="metric-lbl">Classifications</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-val" id="metTopZone">—</div>
+        <div class="metric-lbl">Top zone</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-val" id="metAvgConf">—</div>
+        <div class="metric-lbl">Avg confidence</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-val" id="metUptime">0s</div>
+        <div class="metric-lbl">Uptime</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="card history-card">
+    <div class="card-label">Zone History — last 20 windows</div>
+    <div class="history-track" id="historyTrack">
+    </div>
+    <div style="display:flex;justify-content:space-between;
+                font-size:0.65rem;color:var(--muted);margin-top:6px">
+      <span>older</span><span>latest</span>
+    </div>
+  </div>
+
+  <!-- BUFFER -->
+  <div class="card buffer-card">
+    <div class="card-label">Data Buffer</div>
+    <div class="buffer-outer">
+      <div class="buffer-inner" id="bufferFill"></div>
+    </div>
+    <div class="buffer-text" id="bufferText">0 / 20 rows</div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:8px;
+                text-align:center">
+      Classifies every 10 new rows (50% slide)
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <span>ESP8266 + MPU6050 → HiveMQ → inference.py → Digital Twin</span>
+  <span id="lastUpdate">No data yet</span>
+</footer>
+
+<script>
+  const WS_URL = "ws://localhost:8765";
+
+  const ZONE_COLORS = {
+    zone2:   "#3b82f6",
+    aerobic: "#22c55e",
+    tempo:   "#eab308",
+    intense: "#ef4444",
+    waiting: "#475569"
+  };
+
+  const ZONE_HEIGHT = {
+    zone2: 25, aerobic: 50, tempo: 75, intense: 100, waiting: 15
+  };
+
+  let currentTarget   = "aerobic";
+  let classifications = 0;
+  let confSum         = 0;
+  let zoneCounts      = {};
+  let startTime       = Date.now();
+  let ws;
+
+  // ── Connect WebSocket ──
+  function connect() {
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      document.getElementById("connPill").textContent = "Live";
+      document.getElementById("connPill").classList.add("connected");
+      console.log("WebSocket connected");
+    };
+
+    ws.onclose = () => {
+      document.getElementById("connPill").textContent = "Reconnecting...";
+      document.getElementById("connPill").classList.remove("connected");
+      setTimeout(connect, 2000);
+    };
+
+    ws.onerror = () => {
+      ws.close();
+    };
+
+    ws.onmessage = (event) => {
+      const d = JSON.parse(event.data);
+      updateDashboard(d);
+    };
+  }
+
+  // ── Update all dashboard elements ──
+  function updateDashboard(d) {
+    const zone = d.zone || "waiting";
+    const conf = d.confidence || 0;
+    const prob = d.probabilities || {};
+    const hist = d.history || [];
+
+    // Zone badge
+    const zCard = document.getElementById("zoneCard");
+    const zName = document.getElementById("zoneName");
+    const zPace = document.getElementById("zonePace");
+    const zConf = document.getElementById("zoneConf");
+
+    zCard.className = `card zone-card z-${zone}`;
+    zName.className = `zone-name zc-${zone}`;
+    zName.textContent = zone.toUpperCase();
+    zPace.textContent = d.pace || "—";
+    zPace.style.color = ZONE_COLORS[zone] || ZONE_COLORS.waiting;
+    zConf.className   = `zone-conf zc-${zone}`;
+    zConf.textContent = zone !== "waiting" ? `${conf.toFixed(1)}%` : "—";
+
+    // Suggestion
+    document.getElementById("suggestionText").textContent =
+      d.suggestion || "Waiting for data...";
+
+    // Probability bars
+    ["zone2","aerobic","tempo","intense"].forEach(z => {
+      const pct = prob[z] || 0;
+      document.getElementById(`prob-${z}`).style.width  = `${pct}%`;
+      document.getElementById(`pval-${z}`).textContent  =
+        pct > 0 ? `${pct.toFixed(0)}%` : "—";
+    });
+
+    // Buffer
+    const fill = d.buffer_fill || 0;
+    const wSize = d.window_size || 20;
+    document.getElementById("bufferFill").style.width =
+      `${(fill / wSize) * 100}%`;
+    document.getElementById("bufferText").textContent =
+      `${fill} / ${wSize} rows`;
+
+    // History bars
+    const track = document.getElementById("historyTrack");
+    track.innerHTML = "";
+    hist.forEach(z => {
+      const bar = document.createElement("div");
+      bar.className = "history-bar";
+      bar.style.height     = `${ZONE_HEIGHT[z] || 15}%`;
+      bar.style.background = ZONE_COLORS[z] || ZONE_COLORS.waiting;
+      bar.title = z;
+      track.appendChild(bar);
+    });
+
+    // Session stats
+    if (zone !== "waiting") {
+      classifications++;
+      confSum += conf;
+      zoneCounts[zone] = (zoneCounts[zone] || 0) + 1;
+    }
+    const topZone = Object.entries(zoneCounts)
+      .sort((a,b) => b[1]-a[1])[0];
+
+    document.getElementById("metClassifications").textContent =
+      classifications;
+    document.getElementById("metTopZone").textContent =
+      topZone ? topZone[0] : "—";
+    document.getElementById("metAvgConf").textContent =
+      classifications > 0
+        ? `${(confSum/classifications).toFixed(0)}%`
+        : "—";
+
+    const upSec = Math.floor((Date.now() - startTime) / 1000);
+    const mm = String(Math.floor(upSec/60)).padStart(2,"0");
+    const ss = String(upSec % 60).padStart(2,"0");
+    document.getElementById("metUptime").textContent = `${mm}:${ss}`;
+
+    // Last update
+    const now = new Date();
+    document.getElementById("lastUpdate").textContent =
+      `Last update: ${now.toLocaleTimeString()}`;
+  }
+
+  // ── Target zone buttons ──
+  function setTarget(zone) {
+    currentTarget = zone;
+    ["zone2","aerobic","tempo","intense"].forEach(z => {
+      const btn = document.getElementById(`btn-${z}`);
+      btn.className = "target-btn" + (z===zone ? ` active-${z}` : "");
+    });
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ target: zone }));
+    }
+  }
+
+  // ── Uptime ticker ──
+  setInterval(() => {
+    const upSec = Math.floor((Date.now() - startTime)/1000);
+    const mm = String(Math.floor(upSec/60)).padStart(2,"0");
+    const ss = String(upSec % 60).padStart(2,"0");
+    document.getElementById("metUptime").textContent = `${mm}:${ss}`;
+  }, 1000);
+
+  // init
+  setTarget("aerobic");
+  connect();
+</script>
+</body>
+</html>
