@@ -62,7 +62,7 @@ This creates a complete Digital Twin pipeline from simulation → prediction →
 
 🚀 How to Run the Project
 Step 1: Clone Repository
-git clone https://github.com/your-username/Digital_Twin_Athlete.git
+git clone https:https://github.com/amandep839/Digital_Twin_Athlete.git
 Step 2: Install Dependencies
 pip install pandas numpy scikit-learn streamlit
 Step 3: Run Simulator
